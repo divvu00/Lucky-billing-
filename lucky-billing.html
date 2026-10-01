@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lucky Spare Parts and Service – Billing</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#eef0f4;--card:#fff;--ink:#2f3448;--mut:#6b7185;--line:#c9cdd8;--acc:#0e6e6e;--accfg:#fff;--warn:#b42318}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171a23;--card:#222634;--ink:#e6e8ef;--mut:#9aa1b5;--line:#3a4054;--acc:#4fc3b8;--accfg:#10231f;--warn:#ff8a7a}}
+:root[data-theme="dark"]{--bg:#171a23;--card:#222634;--ink:#e6e8ef;--mut:#9aa1b5;--line:#3a4054;--acc:#4fc3b8;--accfg:#10231f;--warn:#ff8a7a}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 12px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.bar h1{font-size:16px;margin:0 auto 0 0}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:8px 12px;cursor:pointer}
+button.p{background:var(--acc);color:var(--accfg);border-color:var(--acc);font-weight:600}
+button.on{border-color:var(--acc);color:var(--acc);font-weight:600}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{padding:12px;max-width:900px;margin:0 auto}
+.scroll{overflow-x:auto}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:10px}
+.opts label{font-size:12px;color:var(--mut);display:flex;flex-direction:column;gap:3px}
+.opts input,.opts select{font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+/* the invoice sheet always stays light, like paper */
+.sheet{background:#fff;color:#3a3f55;min-width:680px;padding:14px;border:1px solid #cfd3de;font-size:13px}
+.sheet h2{text-align:center;margin:0 0 8px;font-size:20px}
+.sheet table{width:100%;border-collapse:collapse}
+.sheet td,.sheet th{border:1px solid #5b6075;padding:4px 6px;vertical-align:top;text-align:left}
+.sheet th{background:#f1f2f6}
+.sheet .n{text-align:right}
+.sheet .biz{font-size:24px;font-weight:700;margin:0}
+.sheet input{font:inherit;color:inherit;border:0;border-bottom:1px dashed #b5bac8;background:transparent;width:100%;padding:2px 0;min-width:0}
+.sheet input.n{text-align:right}
+.sheet input:focus{outline:2px solid #0e6e6e;background:#f4fbfb}
+.x{border:0;background:none;color:#b42318;padding:0 4px}
+.sheet .body td{height:30px}
+.sheet .fill td{height:150px}
+.sheet .nb td{border:0}
+.sig{height:70px;text-align:center;vertical-align:bottom!important}
+.list{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:12px}
+.list table{width:100%;border-collapse:collapse}
+.list td,.list th{padding:7px 4px;border-bottom:1px solid var(--line);text-align:left}
+.list .n{text-align:right}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.stats div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px}
+.stats b{display:block;font-size:18px}
+.stats span{font-size:12px;color:var(--mut)}
+textarea{width:100%;min-height:90px;font:12px monospace;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--card);padding:10px 16px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none}
+#toast.show{opacity:1}
+.hide{display:none}
+@media print{
+ @page{size:A4;margin:8mm}
+ body{background:#fff}.no-print,.bar{display:none!important}
+ main{padding:0;max-width:none}.scroll{overflow:visible}
+ .sheet{border:0;min-width:0;padding:0}
+ .sheet input{border:0}.hideprint{display:none}
+}
+</style></head>
+<body>
+<div class="bar no-print">
+ <h1>Lucky Spare Parts &amp; Service</h1>
+ <button id="tNew" class="on">New bill</button>
+ <button id="tSaved">Saved bills</button>
+</div>
+<main>
+<section id="vNew">
+ <div class="opts no-print">
+  <label>Customer name<input data-b="cust.name" autocomplete="off"></label>
+  <label>Customer phone<input data-b="cust.phone" inputmode="tel"></label>
+  <label>Bike number<input data-b="cust.bike" placeholder="UP 38 AB 1234"></label>
+  <label>Bike model<input data-b="cust.model" placeholder="Splendor, Pulsar…"></label>
+  <label>Odometer (km)<input data-b="cust.odo" inputmode="numeric"></label>
+  <label>Date<input type="date" data-b="date"></label>
+  <label>Customer location<select id="inter"><option value="0">Same state (CGST + SGST)</option><option value="1">Other state (IGST)</option></select></label>
+  <label>Amount received (₹)<input type="number" min="0" step="any" id="recv"></label>
+  <label>Payment mode<select id="mode"><option>Cash</option><option>Online</option><option>Card</option><option>Other</option></select></label>
+ </div>
+ <div class="scroll"><div class="sheet" id="sheet">
+  <h2>Tax Invoice</h2>
+  <table>
+   <tr><td colspan="2"><p class="biz" id="bName"></p><div id="bAddr"></div>
+     <div><span>Phone: <b id="bPhone"></b></span> &nbsp; <span>Email: <b id="bEmail"></b></span> &nbsp; <span id="bGst"></span></div></td></tr>
+   <tr><th>Bill to</th><th>Invoice details</th></tr>
+   <tr><td><b id="pName"></b><div id="pPhone"></div><div id="pBike"></div></td>
+       <td>Invoice no.: <b id="pNo"></b><br>Date: <b id="pDate"></b></td></tr>
+  </table>
+  <table style="margin-top:8px">
+   <thead><tr><th>#</th><th style="width:34%">Item / service</th><th>HSN/SAC</th><th class="n">Qty</th><th class="n">Price/unit (₹)</th><th class="n">GST %</th><th class="n">Amount (₹)</th><th class="no-print"></th></tr></thead>
+   <tbody id="rows"></tbody>
+   <tr class="fill"><td colspan="8" style="border-top:0"></td></tr>
+   <tr><td></td><td><b>Total</b></td><td></td><td class="n"><b id="tQty"></b></td><td></td><td class="n"><b id="tTax"></b></td><td class="n"><b id="tAmt"></b></td><td class="no-print"></td></tr>
+  </table>
+  <div class="no-print" style="margin:6px 0"><button id="addRow">+ Add item</button></div>
+  <table style="margin-top:8px"><tr>
+   <td style="width:58%;padding:0"><table id="taxSum"></table></td>
+   <td style="padding:0"><table id="totals"></table></td></tr></table>
+  <table style="margin-top:8px"><tr>
+   <td style="width:50%"><b>Bank details</b><br><span id="bBank"></span><br><b>Terms:</b> <span id="bTerms"></span></td>
+   <td class="sig">For <b id="bName2"></b><br><br><br>Authorized Signatory</td></tr></table>
+ </div></div>
+ <p class="no-print" style="display:flex;gap:8px;flex-wrap:wrap">
+  <button class="p" id="save">Save bill</button><button id="print">Print / PDF</button><button id="fresh">New bill</button></p>
+</section>
+
+<section id="vSaved" class="hide">
+ <div class="stats" id="stats"></div>
+ <div class="list scroll"><table><thead><tr><th>No.</th><th>Date</th><th>Customer / bike</th><th class="n">Total</th><th class="n">Due</th><th></th></tr></thead><tbody id="saved"></tbody></table>
+  <p id="empty" class="hide" style="color:var(--mut)">No saved bills yet. Make one in New bill and tap Save bill.</p></div>
+ <div class="list"><b>Backup</b>
+  <p style="color:var(--mut);margin:4px 0">Bills are stored in this browser only. Copy the backup text and keep it in WhatsApp or Notes. To restore, paste it below and tap Restore.</p>
+  <textarea id="bk" placeholder="Backup text appears here"></textarea>
+  <p style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 0"><button id="mk">Show backup</button><button id="cp">Copy</button><button id="rs">Restore from text</button></p></div>
+</section>
+</main>
+<div id="toast"></div>
+<datalist id="items"></datalist>
+<script>
+const BIZ={name:"Lucky Spare Parts and Service",addr:"Soti Pura, Near Azad Girls College, Sambhal (U.P.) 244302",phone:"7819848440",email:"divyanshusagar2211@gmail.com",gst:"",bank:"Axis Bank | A/c No. 1927392629 | IFSC: AXIS000562",terms:"Goods once sold will not be taken return."};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const DB={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){toast("Storage is full or blocked")}}};
+const inr=n=>"₹ "+(+n||0).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2});
+const today=()=>new Date().toISOString().slice(0,10);
+const fmtD=d=>d?d.split("-").reverse().join("/"):"";
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1800)}
+
+function words(n){n=Math.round(n);if(!n)return"Zero Rupees only";
+ const a="One Two Three Four Five Six Seven Eight Nine Ten Eleven Twelve Thirteen Fourteen Fifteen Sixteen Seventeen Eighteen Nineteen".split(" "),
+ b=",,Twenty,Thirty,Forty,Fifty,Sixty,Seventy,Eighty,Ninety".split(",");
+ const t=x=>x<20?a[x-1]:b[Math.floor(x/10)]+(x%10?" "+a[x%10-1]:"");
+ const h=x=>(x>99?a[Math.floor(x/100)-1]+" Hundred"+(x%100?" ":""):"")+(x%100?t(x%100):"");
+ const p=[[Math.floor(n/1e7),"Crore"],[Math.floor(n/1e5)%100,"Lakh"],[Math.floor(n/1e3)%100,"Thousand"],[n%1000,""]];
+ return p.filter(x=>x[0]).map(x=>h(x[0])+(x[1]?" "+x[1]:"")).join(" ")+" Rupees only"}
+
+let inv, invs=DB.get("lsp_inv",[]), cat=DB.get("lsp_cat",{});
+const blankLine=()=>({name:"",hsn:"",qty:1,price:0,rate:18});
+function blank(){const next=invs.reduce((m,i)=>Math.max(m,i.no),0)+1;
+ return{no:next,date:today(),cust:{name:"",phone:"",bike:"",model:"",odo:""},inter:0,lines:[blankLine()],received:0,mode:"Cash"}}
+
+function calc(){let sub=0,tax=0,qty=0;const g={};
+ inv.lines.forEach(l=>{const t=l.qty*l.price,x=t*l.rate/100;l.amt=t+x;sub+=t;tax+=x;qty+=l.qty;
+  (g[l.rate]=g[l.rate]||{t:0,x:0});g[l.rate].t+=t;g[l.rate].x+=x});
+ const raw=sub+tax,total=Math.round(raw);
+ return{sub,tax,qty,g,total,ro:total-raw,bal:total-(inv.received||0)}}
+
+function drawRows(){
+ $("#rows").innerHTML=inv.lines.map((l,i)=>`<tr class="body"><td>${i+1}</td>
+ <td><input data-i="${i}" data-k="name" list="items" value="${esc(l.name)}" placeholder="Part or service"></td>
+ <td><input data-i="${i}" data-k="hsn" inputmode="numeric" value="${esc(l.hsn)}"></td>
+ <td><input class="n" type="number" min="0" step="any" data-i="${i}" data-k="qty" value="${l.qty}"></td>
+ <td><input class="n" type="number" min="0" step="any" data-i="${i}" data-k="price" value="${l.price}"></td>
+ <td><input class="n" type="number" min="0" step="any" data-i="${i}" data-k="rate" value="${l.rate}"></td>
+ <td class="n" id="a${i}"></td>
+ <td class="no-print"><button class="x" data-del="${i}" aria-label="Remove item">×</button></td></tr>`).join("");
+ $("#items").innerHTML=Object.keys(cat).map(k=>`<option value="${esc(k)}">`).join("");
+ upd()}
+
+function upd(){
+ const c=calc(),I=inv.inter==1;
+ inv.lines.forEach((l,i)=>{const e=$("#a"+i);if(e)e.textContent=inr(l.amt)});
+ $("#tQty").textContent=c.qty;$("#tTax").textContent=inr(c.tax);$("#tAmt").textContent=inr(c.sub+c.tax);
+ $("#pName").textContent=inv.cust.name||"—";$("#pPhone").textContent=inv.cust.phone?"Phone: "+inv.cust.phone:"";
+ $("#pBike").textContent=[inv.cust.bike&&"Bike: "+inv.cust.bike,inv.cust.model,inv.cust.odo&&inv.cust.odo+" km"].filter(Boolean).join(" | ");
+ $("#pNo").textContent="LSP-"+inv.no;$("#pDate").textContent=fmtD(inv.date);
+ const rates=Object.keys(c.g).sort((a,b)=>a-b);
+ const head=I?`<tr><th rowspan="2">Taxable (₹)</th><th colspan="2">IGST</th><th rowspan="2" class="n">Total tax</th></tr><tr><th class="n">Rate</th><th class="n">Amt</th></tr>`
+  :`<tr><th rowspan="2">Taxable (₹)</th><th colspan="2">CGST</th><th colspan="2">SGST</th><th rowspan="2" class="n">Total tax</th></tr><tr><th class="n">Rate</th><th class="n">Amt</th><th class="n">Rate</th><th class="n">Amt</th></tr>`;
+ const f=n=>n.toFixed(2);
+ const body=rates.map(r=>{const x=c.g[r].x;return I?`<tr><td class="n">${f(c.g[r].t)}</td><td class="n">${r}</td><td class="n">${f(x)}</td><td class="n">${f(x)}</td></tr>`
+  :`<tr><td class="n">${f(c.g[r].t)}</td><td class="n">${r/2}</td><td class="n">${f(x/2)}</td><td class="n">${r/2}</td><td class="n">${f(x/2)}</td><td class="n">${f(x)}</td></tr>`}).join("");
+ $("#taxSum").innerHTML=head+body+`<tr><td class="n"><b>${f(c.sub)}</b></td>${I?`<td></td><td class="n"><b>${f(c.tax)}</b></td>`:`<td></td><td class="n"><b>${f(c.tax/2)}</b></td><td></td><td class="n"><b>${f(c.tax/2)}</b></td>`}<td class="n"><b>${f(c.tax)}</b></td></tr>`;
+ $("#totals").innerHTML=`<tr><td>Sub total</td><td class="n">${inr(c.sub+c.tax)}</td></tr>
+ <tr><td>Round off</td><td class="n">${c.ro.toFixed(2)}</td></tr>
+ <tr><td><b>Total</b></td><td class="n"><b>${inr(c.total)}</b></td></tr>
+ <tr><td colspan="2"><b>Amount in words:</b><br>${words(c.total)}</td></tr>
+ <tr><td>Received${inv.received>0?" ("+esc(inv.mode||"Cash")+")":""}</td><td class="n">${inr(inv.received)}</td></tr>
+ <tr><td>Balance</td><td class="n">${inr(c.bal)}</td></tr>`;
+}
+
+function fillBiz(){
+ $("#bName").textContent=BIZ.name;$("#bName2").textContent=BIZ.name;$("#bAddr").textContent=BIZ.addr;
+ $("#bPhone").textContent=BIZ.phone;$("#bEmail").textContent=BIZ.email;
+ $("#bGst").textContent=BIZ.gst?"GSTIN: "+BIZ.gst:"";$("#bBank").textContent=BIZ.bank;$("#bTerms").textContent=BIZ.terms}
+
+function load(i){inv=i;
+ document.querySelectorAll("[data-b]").forEach(e=>{e.value=e.dataset.b.split(".").reduce((o,k)=>o[k],inv)??""});
+ $("#inter").value=inv.inter;$("#recv").value=inv.received||"";$("#mode").value=inv.mode||"Cash";drawRows()}
+
+document.addEventListener("input",e=>{const t=e.target;
+ if(t.dataset.b){const p=t.dataset.b.split("."),k=p.pop();p.reduce((o,x)=>o[x],inv)[k]=t.value;upd()}
+ else if(t.dataset.k){const l=inv.lines[t.dataset.i],k=t.dataset.k;l[k]=["qty","price","rate"].includes(k)?(+t.value||0):t.value;upd()}
+ else if(t.id=="recv"){inv.received=+t.value||0;upd()}});
+$("#mode").onchange=e=>{inv.mode=e.target.value;upd()};
+$("#inter").onchange=e=>{inv.inter=+e.target.value;upd()};
+$("#rows").addEventListener("change",e=>{const t=e.target;
+ if(t.dataset.k=="name"&&cat[t.value]){const l=inv.lines[t.dataset.i],c=cat[t.value];if(!l.price){l.price=c.price;l.hsn=c.hsn;l.rate=c.rate;drawRows()}}});
+$("#rows").addEventListener("click",e=>{const d=e.target.dataset.del;if(d!=null){inv.lines.splice(d,1);if(!inv.lines.length)inv.lines.push(blankLine());drawRows()}});
+$("#addRow").onclick=()=>{inv.lines.push(blankLine());drawRows()};
+$("#print").onclick=()=>window.print();
+$("#fresh").onclick=()=>{load(blank());toast("New bill ready")};
+$("#save").onclick=()=>{
+ if(!inv.lines.some(l=>l.name.trim()&&l.qty>0)){toast("Add at least one item");return}
+ const c=calc();inv.total=c.total;inv.balance=c.bal;
+ inv.lines.forEach(l=>{if(l.name.trim())cat[l.name.trim()]={hsn:l.hsn,price:l.price,rate:l.rate}});
+ const i=invs.findIndex(x=>x.no==inv.no);const copy=JSON.parse(JSON.stringify(inv));
+ if(i>=0)invs[i]=copy;else invs.push(copy);
+ DB.set("lsp_inv",invs);DB.set("lsp_cat",cat);toast("Bill LSP-"+inv.no+" saved");drawRows()};
+
+function show(v){$("#vNew").classList.toggle("hide",v!="new");$("#vSaved").classList.toggle("hide",v!="saved");
+ $("#tNew").classList.toggle("on",v=="new");$("#tSaved").classList.toggle("on",v=="saved");if(v=="saved")drawSaved()}
+$("#tNew").onclick=()=>show("new");$("#tSaved").onclick=()=>show("saved");
+
+function drawSaved(){
+ const td=today(),mo=td.slice(0,7);
+ const sum=f=>invs.filter(f).reduce((s,i)=>s+i.total,0);
+ $("#stats").innerHTML=`<div><b>${inr(sum(i=>i.date==td))}</b><span>Today's sales</span></div><div><b>${inr(sum(i=>i.date.startsWith(mo)))}</b><span>This month</span></div><div><b>${inr(invs.reduce((s,i)=>s+Math.max(0,i.balance),0))}</b><span>Dues to collect</span></div>`;
+ $("#empty").classList.toggle("hide",invs.length>0);
+ $("#saved").innerHTML=[...invs].sort((a,b)=>b.no-a.no).map(i=>`<tr><td>LSP-${i.no}</td><td>${fmtD(i.date)}</td><td>${esc(i.cust.name||"—")}<br><small>${esc(i.cust.bike)}</small></td><td class="n">${inr(i.total)}${i.received>0?`<br><small>${esc(i.mode||"Cash")}</small>`:""}</td><td class="n" style="color:${i.balance>0?"var(--warn)":"inherit"}">${inr(i.balance)}</td>
+ <td><button data-open="${i.no}">Open</button> <button data-rm="${i.no}">Delete</button></td></tr>`).join("")}
+$("#saved").addEventListener("click",e=>{const t=e.target;
+ if(t.dataset.open){load(JSON.parse(JSON.stringify(invs.find(i=>i.no==t.dataset.open))));show("new")}
+ if(t.dataset.rm){if(t.dataset.sure){invs=invs.filter(i=>i.no!=t.dataset.rm);DB.set("lsp_inv",invs);drawSaved()}else{t.dataset.sure=1;t.textContent="Sure?"}}});
+
+$("#mk").onclick=()=>{$("#bk").value=JSON.stringify({invs,cat})};
+$("#cp").onclick=async()=>{const b=$("#bk");if(!b.value)$("#mk").click();b.select();try{await navigator.clipboard.writeText(b.value);toast("Backup copied")}catch(e){document.execCommand("copy");toast("Backup selected, copy it")}};
+$("#rs").onclick=()=>{try{const d=JSON.parse($("#bk").value);if(!Array.isArray(d.invs))throw 0;invs=d.invs;cat=d.cat||{};DB.set("lsp_inv",invs);DB.set("lsp_cat",cat);load(blank());drawSaved();toast("Backup restored")}catch(e){toast("That backup text is not valid")}};
+
+fillBiz();load(blank());
+</script></body></html>
